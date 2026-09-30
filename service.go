@@ -325,7 +325,6 @@ func (s *Service) Release(orderID, code string, version int64) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	now := s.now()
 	v, err := s.lookupLocked(digest)
 	if err != nil {
 		return err
@@ -350,9 +349,8 @@ func (s *Service) Release(orderID, code string, version int64) error {
 		// 若券恰好仍由本单持有一个更新的到期预占，也算版本过期。
 		return ErrVersionMismatch
 	}
-	if !now.Before(v.expiresAt) {
-		// 到期预占同样回收；版本推进使迟到确认被拒绝。
-	}
+	// 无论预占是否已到期都回收：到期预占被回收后，
+	// 后续重新预占会推进版本，迟到确认必然被版本栅栏拒绝。
 	s.clearHoldLocked(v)
 	return nil
 }
@@ -387,7 +385,7 @@ func (s *Service) expireHoldsLocked(now time.Time) []string {
 }
 
 // VoidBatch 整体作废批次：已核销的券保留，其余（可用/预占中/预占已到期）
-// 一律翻转为已作废并推进版本，使尚未完成的预占无法再确认。
+// 一律翻转为已作废终态，使尚未完成的预占无法再确认。
 // 返回被作废的券 ID 列表；已作废批次重复调用返回该列表为空且不报错。
 func (s *Service) VoidBatch(batchID, reason string) ([]string, error) {
 	s.mu.Lock()

@@ -45,6 +45,13 @@ type Service struct {
 	// 订单核销账本：orderID -> voucherID -> Redemption。
 	// 同一券只会在状态翻转的临界区内写入一次，面值因此不会被重复计入。
 	redemptions map[string]map[string]Redemption
+
+	// 兑换核销层：批次规则、剩余可核销库存、核销号/退款号幂等索引。
+	redeemRules     map[string]RedeemRule          // batchID -> 当前规则
+	redeemStock     map[string]int64               // batchID -> 剩余库存
+	redeemIdx       map[string]redeemEntry         // redeemNo -> 核销记录
+	redeemByVoucher map[string]map[string]struct{} // voucherID -> redeemNo 集合
+	refundIdx       map[string]RefundRecord        // refundNo -> 退款记录
 }
 
 // NewService 创建服务。clock 为 nil 时使用 time.Now。
@@ -63,6 +70,12 @@ func NewService(clock Clock) (*Service, error) {
 		vouchers:    make(map[string]*Voucher),
 		digestIdx:   make(map[string]*Voucher),
 		redemptions: make(map[string]map[string]Redemption),
+
+		redeemRules:     make(map[string]RedeemRule),
+		redeemStock:     make(map[string]int64),
+		redeemIdx:       make(map[string]redeemEntry),
+		redeemByVoucher: make(map[string]map[string]struct{}),
+		refundIdx:       make(map[string]RefundRecord),
 	}, nil
 }
 

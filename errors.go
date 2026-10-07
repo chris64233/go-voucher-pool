@@ -40,4 +40,19 @@ var (
 
 	// ErrInvalidArgument 通用参数错误。
 	ErrInvalidArgument = errors.New("govoucherpool: invalid argument")
+
+	// ErrRedeemConflict 同一核销号携带了不同的用户/券码/订单/规则版本/金额。
+	ErrRedeemConflict = errors.New("govoucherpool: redeem idempotency conflict")
+	// ErrRedeemNotFound 核销号不存在。
+	ErrRedeemNotFound = errors.New("govoucherpool: redeem not found")
+	// ErrRuleMismatch 规则版本不符、订单金额不足或适用范围不匹配。
+	ErrRuleMismatch = errors.New("govoucherpool: redeem rule mismatch")
+	// ErrRuleVersionStale 配置的规则版本不大于当前版本。
+	ErrRuleVersionStale = errors.New("govoucherpool: redeem rule version is stale")
+	// ErrPoolStockExhausted 池库存不足。
+	ErrPoolStockExhausted = errors.New("govoucherpool: redeem pool stock exhausted")
+	// ErrRefundConflict 同一退款号关联了不同的核销或金额。
+	ErrRefundConflict = errors.New("govoucherpool: refund idempotency conflict")
+	// ErrRefundExceedsRule 累计返还超过规则允许的权益上限。
+	ErrRefundExceedsRule = errors.New("govoucherpool: refund exceeds rule allowance")
 )

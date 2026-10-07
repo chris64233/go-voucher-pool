@@ -40,4 +40,22 @@ var (
 
 	// ErrInvalidArgument 通用参数错误。
 	ErrInvalidArgument = errors.New("govoucherpool: invalid argument")
+
+	// ErrPoolExhausted 券池可核销库存不足。
+	ErrPoolExhausted = errors.New("govoucherpool: voucher pool exhausted")
+	// ErrRuleMismatch 订单不满足券的适用规则（门槛/范围等）。
+	ErrRuleMismatch = errors.New("govoucherpool: order does not satisfy voucher rule")
+	// ErrRuleVersionMismatch 请求固定的优惠规则版本与当前版本不一致。
+	ErrRuleVersionMismatch = errors.New("govoucherpool: rule version mismatch")
+
+	// ErrIdempotencyConflict 同一核销号/退款号重复提交但请求要素不一致。
+	ErrIdempotencyConflict = errors.New("govoucherpool: idempotency key reused with different request")
+	// ErrRedeemNotFound 原核销不存在或无法匹配。
+	ErrRedeemNotFound = errors.New("govoucherpool: redemption not found")
+	// ErrRefundNotFound 退款记录不存在。
+	ErrRefundNotFound = errors.New("govoucherpool: refund not found")
+	// ErrPartialRefundNotAllowed 当前券规则不允许部分退款返还权益。
+	ErrPartialRefundNotAllowed = errors.New("govoucherpool: partial refund benefit is not allowed by rule")
+	// ErrRefundExceeded 累计退款金额超过原订单金额（超额返还）。
+	ErrRefundExceeded = errors.New("govoucherpool: refund amount exceeds original order amount")
 )

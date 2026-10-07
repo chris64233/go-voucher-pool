@@ -18,6 +18,15 @@ type CreateBatchInput struct {
 	Scope       Scope
 	EffectiveAt time.Time
 	ExpiresAt   time.Time
+
+	// RuleVersion 优惠规则版本，0 视为 1。
+	RuleVersion int32
+	// MinOrderAmount 最低订单金额（含），0 表示无门槛。
+	MinOrderAmount int64
+	// RefundPolicy 退款返还规则。
+	RefundPolicy RefundPolicy
+	// Stock 发行库存，<=0 表示不限量。
+	Stock int64
 }
 
 // ReserveResult 预占结果。
@@ -45,6 +54,14 @@ type Service struct {
 	// 订单核销账本：orderID -> voucherID -> Redemption。
 	// 同一券只会在状态翻转的临界区内写入一次，面值因此不会被重复计入。
 	redemptions map[string]map[string]Redemption
+
+	// 兑换核销链路索引。
+	redeemByKey        map[string]RedeemRecord            // 核销号 -> 原结果（幂等返回）
+	redeemByOrder      map[string]map[string]RedeemRecord // 订单 -> 券 -> 核销记录
+	refundByID         map[string]RefundRecord            // 退款单号 -> 原结果
+	refundsByRedeem    map[string][]RefundRecord          // 核销号 -> 退款返还记录
+	redeemFingerprints map[string]redeemFingerprint       // 核销号 -> 首次请求要素
+	refundFingerprints map[string]refundFingerprint       // 退款单号 -> 首次请求要素
 }
 
 // NewService 创建服务。clock 为 nil 时使用 time.Now。
@@ -57,12 +74,18 @@ func NewService(clock Clock) (*Service, error) {
 		clock = time.Now
 	}
 	return &Service{
-		now:         clock,
-		salt:        salt,
-		batches:     make(map[string]*Batch),
-		vouchers:    make(map[string]*Voucher),
-		digestIdx:   make(map[string]*Voucher),
-		redemptions: make(map[string]map[string]Redemption),
+		now:                clock,
+		salt:               salt,
+		batches:            make(map[string]*Batch),
+		vouchers:           make(map[string]*Voucher),
+		digestIdx:          make(map[string]*Voucher),
+		redemptions:        make(map[string]map[string]Redemption),
+		redeemByKey:        make(map[string]RedeemRecord),
+		redeemByOrder:      make(map[string]map[string]RedeemRecord),
+		refundByID:         make(map[string]RefundRecord),
+		refundsByRedeem:    make(map[string][]RefundRecord),
+		redeemFingerprints: make(map[string]redeemFingerprint),
+		refundFingerprints: make(map[string]refundFingerprint),
 	}, nil
 }
 
@@ -101,16 +124,28 @@ func (s *Service) CreateBatch(in CreateBatchInput) (*Batch, error) {
 	if !in.EffectiveAt.Before(in.ExpiresAt) {
 		return nil, ErrInvalidBatch
 	}
+	if in.MinOrderAmount < 0 {
+		return nil, ErrInvalidBatch
+	}
+	ruleVersion := in.RuleVersion
+	if ruleVersion <= 0 {
+		ruleVersion = 1
+	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	b := &Batch{
-		ID:          s.nextID("bat_"),
-		Name:        in.Name,
-		FaceValue:   in.FaceValue,
-		Scope:       in.Scope.clone(),
-		EffectiveAt: in.EffectiveAt,
-		ExpiresAt:   in.ExpiresAt,
-		CreatedAt:   s.now(),
+		ID:             s.nextID("bat_"),
+		Name:           in.Name,
+		FaceValue:      in.FaceValue,
+		Scope:          in.Scope.clone(),
+		EffectiveAt:    in.EffectiveAt,
+		ExpiresAt:      in.ExpiresAt,
+		CreatedAt:      s.now(),
+		RuleVersion:    ruleVersion,
+		MinOrderAmount: in.MinOrderAmount,
+		RefundPolicy:   in.RefundPolicy,
+		Stock:          in.Stock,
+		remaining:      in.Stock,
 	}
 	s.batches[b.ID] = b
 	return b.clone(), nil
